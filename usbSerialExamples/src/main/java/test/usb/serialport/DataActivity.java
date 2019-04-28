@@ -73,6 +73,7 @@ public class DataActivity extends Activity {
             @Override
             public void onClick(View view) {
                 usbManager.write(etRequest.getText().toString().getBytes(),1000);
+
             }
         });
     }

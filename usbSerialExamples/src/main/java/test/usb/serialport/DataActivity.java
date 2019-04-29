@@ -60,8 +60,7 @@ import java.util.List;
 public class DataActivity extends Activity {
     TextView tv;
     EditText etRequest;
-    Button btnSend;
-    USBManager usbManager = USBManager.getInstance(DataActivity.this);
+    Button btnSend,btnSearch;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -69,34 +68,59 @@ public class DataActivity extends Activity {
         tv = (TextView) findViewById(R.id.tv);
         etRequest = (EditText) findViewById(R.id.et_request);
         btnSend = (Button) findViewById(R.id.btn_send);
+        btnSearch = (Button) findViewById(R.id.btn_list);
+        refreshDeviceList();
         btnSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                USBManager usbManager = USBManager.getInstance(DataActivity.this);
                 usbManager.write(etRequest.getText().toString().getBytes(),1000);
-
             }
         });
     }
+    private void refreshDeviceList() {
+
+        new AsyncTask<Void, Void, List<UsbSerialPort>>() {
+            @Override
+            protected List<UsbSerialPort> doInBackground(Void... params) {
+                List<UsbSerialPort> usbSerialPorts = USBManager.getInstance(DataActivity.this).listUsbPort();
+                return usbSerialPorts;
+            }
+
+            @Override
+            protected void onPostExecute(List<UsbSerialPort> result) {
+                if (result!=null && result.size()>0) {
+                    boolean ret = USBManager.getInstance(DataActivity.this).openUsbPort(result.get(0));
+                    if(ret) {
+                        Toast.makeText(DataActivity.this, "open usb success", Toast.LENGTH_SHORT).show();
+                    }else{
+                        Toast.makeText(DataActivity.this, "open usb fail", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+        }.execute((Void) null); }
+
+
 
     @Override
     protected void onResume() {
         super.onResume();
-        usbManager.setOnInputListener(mListener);
+        USBManager usbManager = USBManager.getInstance(DataActivity.this);
+        usbManager.setOnInputListener(new SerialInputOutputManager.Listener() {
+            @Override
+            public void onRunError(Exception e) {
+                Toast.makeText(DataActivity.this, "串口连接异常，请重试！", Toast.LENGTH_SHORT).show();
+            }
+            @Override
+            public void onNewData(final byte[] data) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        String text = new String(data);
+                        tv.append(text);
+                    }
+                });
+            }
+        });
     }
-    private final SerialInputOutputManager.Listener mListener = new SerialInputOutputManager.Listener() {
-                @Override
-                public void onRunError(Exception e) {
-                    Toast.makeText(DataActivity.this, "串口连接异常，请重试！", Toast.LENGTH_SHORT).show();
-                }
-                @Override
-                public void onNewData(final byte[] data) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            String text = new String(data);
-                            tv.append(text);
-                        }
-                    });
-                }
-            };
 }
